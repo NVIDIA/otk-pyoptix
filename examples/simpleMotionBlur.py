@@ -468,11 +468,18 @@ def create_module( state ):
     simple_motion_blur_cu = os.path.join(os.path.dirname(__file__), 'simpleMotionBlur.cu')
     simple_motion_blur_ptx = compile_cuda( simple_motion_blur_cu )
 
-    state.ptx_module, log = state.context.moduleCreateFromPTX(
-        module_compile_options,
-        state.pipeline_compile_options,
-        simple_motion_blur_ptx
-    )
+    if optix_version_gte( (7, 6) ):
+        state.ptx_module, log = state.context.moduleCreate(
+                                                            module_compile_options,
+                                                            state.pipeline_compile_options,
+                                                            simple_motion_blur_ptx
+                                                          )
+    else:
+        state.ptx_module, log = state.context.moduleCreateFromPTX(
+                                                                    module_compile_options,
+                                                                    state.pipeline_compile_options,
+                                                                    simple_motion_blur_ptx
+                                                                 )
 
 
 def create_program_groups( state ):
@@ -515,17 +522,17 @@ def create_program_groups( state ):
 
 def create_pipeline( state ):
 
-    program_groups = [
-        state.raygen_prog_group,
-        state.miss_group,
-        state.sphere_hit_group,
-        state.tri_hit_group
-    ]
+    program_groups = state.raygen_prog_group + state.miss_group + state.sphere_hit_group + state.tri_hit_group
 
-    pipeline_link_options = optix.PipelineLinkOptions(
-        maxTraceDepth = 2,
-        debugLevel = optix.COMPILE_DEBUG_LEVEL_FULL
-    )
+    if optix_version_gte( (7, 6) ):
+        pipeline_link_options = optix.PipelineLinkOptions(
+            maxTraceDepth = 2,
+        )
+    else:
+        pipeline_link_options = optix.PipelineLinkOptions(
+            maxTraceDepth = 2,
+            debugLevel = optix.COMPILE_DEBUG_LEVEL_FULL
+        )
 
     log = ""
     state.pipeline = state.context.pipelineCreate(
@@ -536,8 +543,12 @@ def create_pipeline( state ):
     )
 
     stack_sizes = optix.StackSizes()
-    for prog_group in program_groups:
-        optix.util.accumulateStackSizes( prog_group, stack_sizes )
+    if optix_version_gte( (7, 6) ):
+        for prog_group in program_groups:
+            optix.util.accumulateStackSizes( prog_group, stack_sizes, state.pipeline )
+    else:
+        for prog_group in program_groups:
+            optix.util.accumulateStackSizes( prog_group, stack_sizes )
 
     ( dc_stack_size_from_trav, dc_stack_size_from_state, cc_stack_size ) = \
         optix.util.computeStackSizes(
@@ -572,10 +583,10 @@ def create_sbt( state ):
         'aligned'     : True 
         } )
     h_raygen_record = np.array( 
-        [ optix.sbtRecordGetHeader( state.raygen_prog_group) ], 
+        [ optix.sbtRecordGetHeader( state.raygen_prog_group[0]) ], 
         dtype = dtype 
     )
-    optix.sbtRecordPackHeader( state.raygen_prog_group, h_raygen_record )
+    optix.sbtRecordPackHeader( state.raygen_prog_group[0], h_raygen_record )
     state.d_raygen_record = array_to_device_memory( h_raygen_record )
 
     #
@@ -590,13 +601,13 @@ def create_sbt( state ):
         'aligned'     : True 
         } )
     h_miss_record = np.array( [ (
-            optix.sbtRecordGetHeader( state.miss_group ), 
+            optix.sbtRecordGetHeader( state.miss_group[0] ), 
             0.1, 0.1, 0.1, 
             0 
         ) ], 
         dtype=dtype 
     )
-    optix.sbtRecordPackHeader( state.miss_group, h_miss_record )
+    optix.sbtRecordPackHeader( state.miss_group[0], h_miss_record )
     state.d_miss_records = array_to_device_memory( h_miss_record )
 
     #
@@ -623,8 +634,8 @@ def create_sbt( state ):
         'aligned'      : True
         } )
 
-    sphere_record_header = optix.sbtRecordGetHeader( state.sphere_hit_group )
-    triangle_record_header   = optix.sbtRecordGetHeader( state.tri_hit_group )
+    sphere_record_header = optix.sbtRecordGetHeader( state.sphere_hit_group[0] )
+    triangle_record_header   = optix.sbtRecordGetHeader( state.tri_hit_group[0] )
 
     h_hitgroup_records = np.array( [ 
         ( 

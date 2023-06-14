@@ -261,11 +261,19 @@ def create_module():
     curves_cu = os.path.join(os.path.dirname(__file__), 'curves.cu' )
     curves_ptx = compile_cuda( curves_cu )
 
-    shading_module, log = device_context.moduleCreateFromPTX(
-        module_compile_options,
-        pipeline_compile_options,
-        curves_ptx
-        )
+    shading_module = None
+    if optix_version_gte( (7,6) ):
+        shading_module, log = device_context.moduleCreate(
+                                                            module_compile_options,
+                                                            pipeline_compile_options,
+                                                            curves_ptx
+                                                            )
+    else:
+        shading_module, log = device_context.moduleCreateFromPTX(
+                                                                    module_compile_options,
+                                                                    pipeline_compile_options,
+                                                                    curves_ptx
+                                                                    )
 
     geometry_module = device_context.builtinISModuleGet(
         module_compile_options,
@@ -308,7 +316,7 @@ def create_program_groups():
             )
     print( "\tProgramGroup hitgroup create log: <<<{}>>>".format( log ) )
 
-    return [ raygen_prog_group, miss_prog_group, hitgroup_prog_group ]
+    return  raygen_prog_group + miss_prog_group + hitgroup_prog_group
 program_groups = create_program_groups()
 
 
@@ -318,7 +326,10 @@ def create_pipeline():
     max_trace_depth = 1
     pipeline_link_options               = optix.PipelineLinkOptions()
     pipeline_link_options.maxTraceDepth = max_trace_depth
-    pipeline_link_options.debugLevel    = optix.COMPILE_DEBUG_LEVEL_FULL
+    if optix_version_gte( (7, 6) ):
+        pass
+    else:
+        pipeline_link_options.debugLevel    = optix.COMPILE_DEBUG_LEVEL_FULL
 
     log = ""
     pipeline = device_context.pipelineCreate(
@@ -329,8 +340,12 @@ def create_pipeline():
             )
 
     stack_sizes = optix.StackSizes()
-    for prog_group in program_groups:
-        optix.util.accumulateStackSizes( prog_group, stack_sizes )
+    if optix_version_gte( (7, 6) ):
+        for prog_group in program_groups:
+            optix.util.accumulateStackSizes( prog_group, stack_sizes, pipeline )
+    else:
+        for prog_group in program_groups:
+            optix.util.accumulateStackSizes( prog_group, stack_sizes )
 
     ( dc_stack_size_from_trav, dc_stack_size_from_state, cc_stack_size ) = \
         optix.util.computeStackSizes(
@@ -354,7 +369,7 @@ pipeline = create_pipeline()
 def create_sbt():
     print( "Creating sbt ... " )
 
-    ( raygen_prog_group, miss_prog_group, hitgroup_prog_group ) = program_groups
+    raygen_prog_group, miss_prog_group, hitgroup_prog_group = program_groups
 
     global d_raygen_sbt
     global d_miss_sbt

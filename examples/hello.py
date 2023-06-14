@@ -181,11 +181,19 @@ def create_module( ctx, pipeline_options, hello_ptx ):
             debugLevel       = optix.COMPILE_DEBUG_LEVEL_DEFAULT
         )
 
-    module, log = ctx.moduleCreateFromPTX(
-            module_options,
+    module, log = None, None
+    if optix_version_gte((7,6)):
+        module, log = ctx.moduleCreate(
+            module_options  ,
             pipeline_options,
             hello_ptx
-            )
+        )
+    else:
+        module, log = ctx.moduleCreateFromPTX(
+                module_options,
+                pipeline_options,
+                hello_ptx
+                )
     print( "\tModule create log: <<<{}>>>".format( log ) )
     return module
 
@@ -210,6 +218,10 @@ def create_program_groups( ctx, module ):
         raygen_prog_group, log = ctx.programGroupCreate(
                 [ raygen_prog_group_desc ]
                 )
+    
+    print(type(raygen_prog_group))
+
+
     print( "\tProgramGroup raygen create log: <<<{}>>>".format( log ) )
 
     miss_prog_group_desc  = optix.ProgramGroupDesc( missEntryFunctionName = "")
@@ -226,11 +238,16 @@ def create_program_groups( ctx, module ):
 def create_pipeline( ctx, raygen_prog_group, pipeline_compile_options ):
     print( "Creating pipeline ... " )
     max_trace_depth  = 0
-    program_groups = [ raygen_prog_group ]
+    program_groups = raygen_prog_group
+
+    print(type(program_groups))
 
     pipeline_link_options               = optix.PipelineLinkOptions() 
     pipeline_link_options.maxTraceDepth = max_trace_depth
-    pipeline_link_options.debugLevel    = optix.COMPILE_DEBUG_LEVEL_FULL
+    if optix_version_gte( (7, 6) ):
+        pass
+    else:
+        pipeline_link_options.debugLevel    = optix.COMPILE_DEBUG_LEVEL_FULL
 
     log = ""
     pipeline = ctx.pipelineCreate(
@@ -241,9 +258,13 @@ def create_pipeline( ctx, raygen_prog_group, pipeline_compile_options ):
             )
 
     stack_sizes = optix.StackSizes()
-    for prog_group in program_groups:
-        optix.util.accumulateStackSizes( prog_group, stack_sizes )
-
+    if optix_version_gte( (7, 6) ):
+        for prog_group in program_groups:
+            optix.util.accumulateStackSizes( prog_group, stack_sizes, pipeline )
+    else:
+        for prog_group in program_groups:
+            optix.util.accumulateStackSizes( prog_group, stack_sizes )
+            
     (dc_stack_size_from_trav, dc_stack_size_from_state, cc_stack_size) = \
         optix.util.computeStackSizes( 
             stack_sizes, 
@@ -282,7 +303,7 @@ def create_sbt( raygen_prog_group, miss_prog_group ):
         'align'   : True
         } )
     h_raygen_sbt = np.array( [ (0, 0.462, 0.725, 0.0 ) ], dtype=dtype )
-    optix.sbtRecordPackHeader( raygen_prog_group, h_raygen_sbt )
+    optix.sbtRecordPackHeader( raygen_prog_group[0], h_raygen_sbt )
     d_raygen_sbt = array_to_device_memory( h_raygen_sbt )
     
     #
@@ -297,7 +318,7 @@ def create_sbt( raygen_prog_group, miss_prog_group ):
         'align'   : True
         } )
     h_miss_sbt = np.array( [ (0, 127 ) ], dtype=dtype )
-    optix.sbtRecordPackHeader( miss_prog_group, h_miss_sbt )
+    optix.sbtRecordPackHeader( miss_prog_group[0], h_miss_sbt )
     d_miss_sbt = array_to_device_memory( h_miss_sbt )
     
     sbt = optix.ShaderBindingTable()

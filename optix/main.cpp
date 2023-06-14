@@ -585,7 +585,21 @@ struct PipelineCompileOptions
     OptixPipelineCompileOptions options{};
 };
 
+#if OPTIX_VERSION >= 70600
 
+struct PipelineLinkOptions
+{
+    PipelineLinkOptions(
+        unsigned int maxTraceDepth
+        )
+    {
+        options.maxTraceDepth = maxTraceDepth;
+    }
+
+    OptixPipelineLinkOptions options{};
+};
+
+#else
 struct PipelineLinkOptions
 {
     PipelineLinkOptions(
@@ -599,7 +613,7 @@ struct PipelineLinkOptions
 
     OptixPipelineLinkOptions options{};
 };
-
+#endif
 
 struct ShaderBindingTable
 {
@@ -1336,6 +1350,39 @@ void pipelineSetStackSize(
     );
 }
 
+#if OPTIX_VERSION >= 70600
+
+py::tuple moduleCreate(
+       const pyoptix::DeviceContext&          context,
+             pyoptix::ModuleCompileOptions&   moduleCompileOptions,
+             pyoptix::PipelineCompileOptions& pipelineCompileOptions,
+       const std::string&                     input
+       )
+{
+    size_t log_buf_size = LOG_BUFFER_MAX_SIZE;
+    char   log_buf[ LOG_BUFFER_MAX_SIZE ];
+    log_buf[0] = '\0';
+
+    moduleCompileOptions.sync();
+    pipelineCompileOptions.sync();
+
+    pyoptix::Module module;
+    PYOPTIX_CHECK_LOG(
+        optixModuleCreate(
+            context.deviceContext,
+            &moduleCompileOptions.options,
+            &pipelineCompileOptions.options,
+            input.c_str(),
+            static_cast<size_t>( input.size()+1 ),
+            log_buf,
+            &log_buf_size,
+            &module.module
+        )
+    );
+    return py::make_tuple( module, py::str(log_buf) );
+}
+
+#else
 py::tuple moduleCreateFromPTX(
        const pyoptix::DeviceContext&          context,
              pyoptix::ModuleCompileOptions&   moduleCompileOptions,
@@ -1365,6 +1412,7 @@ py::tuple moduleCreateFromPTX(
     );
     return py::make_tuple( module, py::str(log_buf) );
 }
+#endif
 
 void moduleDestroy(
        pyoptix::Module module
@@ -1406,6 +1454,9 @@ pyoptix::Module builtinISModuleGet(
 
 pyoptix::StackSizes programGroupGetStackSize(
        pyoptix::ProgramGroup programGroup
+#if OPTIX_VERSION >= 70600
+       , pyoptix::Pipeline pipeline
+#endif
     )
 {
     pyoptix::StackSizes sizes;
@@ -1413,6 +1464,9 @@ pyoptix::StackSizes programGroupGetStackSize(
         optixProgramGroupGetStackSize(
             programGroup.programGroup,
             &sizes.ss
+#if OPTIX_VERSION >= 70600
+            , pipeline.pipeline
+#endif
         )
     );
     return sizes;
@@ -1505,7 +1559,7 @@ py::tuple programGroupCreate(
         )
     );
 
-    if( program_groups.size() > 1 )
+    if( program_groups.size() >= 1 )
     {
         py::list pygroups;
         for( auto& group : program_groups )
@@ -1513,10 +1567,13 @@ py::tuple programGroupCreate(
 
         return py::make_tuple( pygroups, py::str(log_buf) );
     }
+    // Do not see a point tuple with single entry is also handled as list
+    // else
+    // {
+    //     return py::make_tuple( pyoptix::ProgramGroup{ program_groups.front()}, py::str(log_buf) );
+    // }
     else
-    {
-        return py::make_tuple( pyoptix::ProgramGroup{ program_groups.front()}, py::str(log_buf) );
-    }
+        return py::make_tuple( py::none(), py::str(log_buf));
 }
 
 void programGroupDestroy(
@@ -1665,6 +1722,68 @@ OptixTraversableHandle accelBuild(
     return output_handle;
 }
 
+#if OPTIX_VERSION >= 70600
+OptixRelocationInfo GetRelocationInfo(
+       pyoptix::DeviceContext context,
+       OptixTraversableHandle handle
+    )
+{
+    OptixRelocationInfo info;
+    PYOPTIX_CHECK(
+        optixAccelGetRelocationInfo(
+            context.deviceContext,
+            handle,
+            &info
+        )
+    );
+
+    return info;
+}
+
+py::bool_ CheckRelocationCompatibility(
+       pyoptix::DeviceContext context,
+       const OptixRelocationInfo* info
+    )
+{
+    int compatible;
+    PYOPTIX_CHECK(
+        optixCheckRelocationCompatibility(
+            context.deviceContext,
+            info,
+            &compatible
+        )
+    );
+    return py::bool_( compatible );
+}
+
+OptixTraversableHandle accelRelocate(
+       pyoptix::DeviceContext          context,
+       uintptr_t           stream,
+       const OptixRelocationInfo* info,
+       const OptixRelocateInput* relocateInputs,
+       size_t numRelocateInputs,
+       CUdeviceptr                     targetAccel,
+       size_t                          targetAccelSizeInBytes
+    )
+{
+    OptixTraversableHandle targetHandle;
+    PYOPTIX_CHECK(
+        optixAccelRelocate(
+            context.deviceContext,
+            reinterpret_cast<CUstream>( stream ),
+            info,
+            relocateInputs,
+            numRelocateInputs,
+            targetAccel,
+            targetAccelSizeInBytes,
+            &targetHandle
+        )
+    );
+    return targetHandle;
+}
+
+
+#else
 OptixAccelRelocationInfo accelGetRelocationInfo(
        pyoptix::DeviceContext context,
        OptixTraversableHandle handle
@@ -1723,6 +1842,8 @@ OptixTraversableHandle accelRelocate(
     );
     return targetHandle;
 }
+
+#endif
 
 OptixTraversableHandle accelCompact(
        pyoptix::DeviceContext  context,
@@ -2034,10 +2155,17 @@ namespace util
 void accumulateStackSizes(
         pyoptix::ProgramGroup programGroup,
         pyoptix::StackSizes&  stackSizes
+#if OPTIX_VERSION >= 70600
+        , pyoptix::Pipeline pipeline
+#endif
         )
 {
     PYOPTIX_CHECK(
-        optixUtilAccumulateStackSizes( programGroup.programGroup, &stackSizes.ss )
+        optixUtilAccumulateStackSizes( programGroup.programGroup, &stackSizes.ss
+#if OPTIX_VERSION >= 70600
+        , pipeline.pipeline
+#endif
+         )
     );
 }
 
@@ -2144,7 +2272,10 @@ py::tuple computeStackSizesSimplePathTracer(
         pyoptix::ProgramGroup        programGroupMS1,
         py::list                     programGroupCH1,
         pyoptix::ProgramGroup        programGroupMS2,
-        py::list                     programGroupCH2 
+        py::list                     programGroupCH2
+#if OPTIX_VERSION >= 70600
+        , pyoptix::Pipeline            pipeline
+#endif
         )
 {
     unsigned int directCallableStackSizeFromTraversal;
@@ -2172,6 +2303,9 @@ py::tuple computeStackSizesSimplePathTracer(
             &directCallableStackSizeFromTraversal,
             &directCallableStackSizeFromState,
             &continuationStackSize
+#if OPTIX_VERSION >= 70600
+            , pipeline.pipeline
+#endif
             )
         );
 
@@ -2325,7 +2459,14 @@ PYBIND11_MODULE( optix, m )
 #if OPTIX_VERSION >= 70200
         .value( "ERROR_VALIDATION_FAILURE", OPTIX_ERROR_VALIDATION_FAILURE )
 #endif
+
+#if OPTIX_VERSION >= 70600
+        .value("ERROR_INVALID_INPUT", OPTIX_ERROR_INVALID_INPUT)
+        .value("ERROR_NOT_COMPATIBLE", OPTIX_ERROR_NOT_COMPATIBLE)
+#else
         .value( "ERROR_INVALID_PTX", OPTIX_ERROR_INVALID_PTX )
+        .value( "ERROR_ACCEL_NOT_COMPATIBLE", OPTIX_ERROR_ACCEL_NOT_COMPATIBLE )
+#endif
         .value( "ERROR_INVALID_LAUNCH_PARAMETER", OPTIX_ERROR_INVALID_LAUNCH_PARAMETER )
         .value( "ERROR_INVALID_PAYLOAD_ACCESS", OPTIX_ERROR_INVALID_PAYLOAD_ACCESS )
         .value( "ERROR_INVALID_ATTRIBUTE_ACCESS", OPTIX_ERROR_INVALID_ATTRIBUTE_ACCESS )
@@ -2336,7 +2477,6 @@ PYBIND11_MODULE( optix, m )
         .value( "ERROR_INTERNAL_COMPILER_ERROR", OPTIX_ERROR_INTERNAL_COMPILER_ERROR )
         .value( "ERROR_DENOISER_MODEL_NOT_SET", OPTIX_ERROR_DENOISER_MODEL_NOT_SET )
         .value( "ERROR_DENOISER_NOT_INITIALIZED", OPTIX_ERROR_DENOISER_NOT_INITIALIZED )
-        .value( "ERROR_ACCEL_NOT_COMPATIBLE", OPTIX_ERROR_ACCEL_NOT_COMPATIBLE )
         .value( "ERROR_NOT_SUPPORTED", OPTIX_ERROR_NOT_SUPPORTED )
         .value( "ERROR_UNSUPPORTED_ABI_VERSION", OPTIX_ERROR_UNSUPPORTED_ABI_VERSION )
         .value( "ERROR_FUNCTION_TABLE_SIZE_MISMATCH", OPTIX_ERROR_FUNCTION_TABLE_SIZE_MISMATCH )
@@ -2650,7 +2790,13 @@ py::enum_<OptixExceptionCodes>(m, "ExceptionCodes", py::arithmetic())
         .def( "getCacheLocation", &pyoptix::deviceContextGetCacheLocation )
         .def( "getCacheDatabaseSizes", &pyoptix::deviceContextGetCacheDatabaseSizes )
         .def( "pipelineCreate", &pyoptix::pipelineCreate )
+
+        #if OPTIX_VERSION >= 70600
+        .def( "moduleCreate", &pyoptix::moduleCreate )
+        #else
         .def( "moduleCreateFromPTX", &pyoptix::moduleCreateFromPTX )
+        #endif
+        
         IF_OPTIX71(
         .def( "builtinISModuleGet", &pyoptix::builtinISModuleGet )
         )
@@ -2662,8 +2808,13 @@ py::enum_<OptixExceptionCodes>(m, "ExceptionCodes", py::arithmetic())
         )
         .def( "accelComputeMemoryUsage", &pyoptix::accelComputeMemoryUsage )
         .def( "accelBuild", &pyoptix::accelBuild )
+#if OPTIX_VERSION >= 70600
+        .def( "GetRelocationInfo", &pyoptix::GetRelocationInfo )
+        .def( "CheckRelocationCompatibility", &pyoptix::CheckRelocationCompatibility )
+#else
         .def( "accelGetRelocationInfo", &pyoptix::accelGetRelocationInfo )
         .def( "accelCheckRelocationCompatibility", &pyoptix::accelCheckRelocationCompatibility )
+#endif
         .def( "accelRelocate", &pyoptix::accelRelocate )
         .def( "accelCompact", &pyoptix::accelCompact )
         .def( "denoiserCreate", &pyoptix::denoiserCreate )
@@ -3278,11 +3429,17 @@ py::enum_<OptixExceptionCodes>(m, "ExceptionCodes", py::arithmetic())
             )
         ;
 
+#if OPTIX_VERSION >= 70600
+     py::class_<OptixRelocationInfo>(m, "RelocationInfo")
+        .def( py::init([]() { return std::unique_ptr<OptixRelocationInfo>(new OptixRelocationInfo{} ); } ) )
+        // NB: info field is internal only so not making accessible
+        ;
+#else
     py::class_<OptixAccelRelocationInfo>(m, "AccelRelocationInfo")
         .def( py::init([]() { return std::unique_ptr<OptixAccelRelocationInfo>(new OptixAccelRelocationInfo{} ); } ) )
         // NB: info field is internal only so not making accessible
         ;
-
+#endif
     py::class_<pyoptix::StaticTransform>(m, "StaticTransform")
         .def( 
             py::init< 
@@ -3836,14 +3993,18 @@ py::enum_<OptixExceptionCodes>(m, "ExceptionCodes", py::arithmetic())
     py::class_<pyoptix::PipelineLinkOptions>(m, "PipelineLinkOptions")
         .def(
             py::init<
-                uint32_t,
-                OptixCompileDebugLevel
+                uint32_t
+                #if OPTIX_VERSION <= 70600
+                    , OptixCompileDebugLevel
+                #endif
                 >(),
-            py::arg( "maxTraceDepth" ) = 0u,
-            py::arg( "debugLevel"       ) = 
-            IF_OPTIX71_ELSE( 
-                OPTIX_COMPILE_DEBUG_LEVEL_DEFAULT, OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO 
-                )
+            py::arg( "maxTraceDepth" ) = 0u
+            #if OPTIX_VERSION <= 70600
+            , py::arg( "debugLevel"       ) = 
+                IF_OPTIX71_ELSE( 
+                    OPTIX_COMPILE_DEBUG_LEVEL_DEFAULT, OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO 
+                    )
+            #endif
             )
         .def_property( "maxTraceDepth",
             [](const pyoptix::PipelineLinkOptions& self)
@@ -3851,12 +4012,14 @@ py::enum_<OptixExceptionCodes>(m, "ExceptionCodes", py::arithmetic())
             [](pyoptix::PipelineLinkOptions& self, uint32_t val)
             { self.options.maxTraceDepth = val; }
             )
+        #if OPTIX_VERSION <= 70600
         .def_property( "debugLevel",
             [](const pyoptix::PipelineLinkOptions& self)
             { return self.options.debugLevel; },
             [](pyoptix::PipelineLinkOptions& self, OptixCompileDebugLevel val)
             { self.options.debugLevel = val; }
             )
+        #endif
         ;
 
     py::class_<pyoptix::ShaderBindingTable>(m, "ShaderBindingTable")

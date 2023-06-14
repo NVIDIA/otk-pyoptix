@@ -23,7 +23,12 @@ if tutil.optix_version_gte( (7,4) ):
 class TestProgramGroupBase:
     def setup_method(self):
         self.ctx = ox.deviceContextCreate(0, ox.DeviceContextOptions())
-        self.mod, log = self.ctx.moduleCreateFromPTX(ox.ModuleCompileOptions(),
+        if tutil.optix_version_gte( (7, 6) ):
+            self.mod, log = self.ctx.moduleCreate(ox.ModuleCompileOptions(),
+                                                  ox.PipelineCompileOptions(),
+                                                  sample_ptx.hello_ptx)
+        else:
+            self.mod, log = self.ctx.moduleCreateFromPTX(ox.ModuleCompileOptions(),
                                                      ox.PipelineCompileOptions(),
                                                      sample_ptx.hello_ptx)
 
@@ -61,6 +66,7 @@ class TestProgramGroup(TestProgramGroupBase):
             prog_groups, log = self.ctx.programGroupCreate([prog_group_desc], prog_group_opts)
         else:
             prog_groups, log = self.ctx.programGroupCreate([prog_group_desc] )
+
         assert len(prog_groups) == 1
         assert type(prog_groups[0]) is ox.ProgramGroup
 
@@ -145,5 +151,6 @@ class TestProgramGroup(TestProgramGroupBase):
 
     def test_get_stack_size(self):
         prog_group = self.create_prog_group()
+        # this getstacksize call needs a pipeline object the test case needs alteration
         stack_size = prog_group.getStackSize()
         assert type(stack_size) is ox.StackSizes

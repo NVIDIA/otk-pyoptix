@@ -1,0 +1,3 @@
+build/**
+dist/**
+optix.egg-info/**

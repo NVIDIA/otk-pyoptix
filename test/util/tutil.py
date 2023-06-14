@@ -418,9 +418,17 @@ def create_default_module():
     ctx = create_default_ctx();
     module_opts   = optix.ModuleCompileOptions()
     pipeline_opts = optix.PipelineCompileOptions()
-    mod, log = ctx.moduleCreateFromPTX(
-        module_opts,
-        pipeline_opts,
-        ptx_string,
-        )
+    mod = None
+    if optix_version_gte( (7, 6) ):
+        mod, log = ctx.moduleCreate(
+			module_opts,
+			pipeline_opts,
+			ptx_string,
+			)
+    else:
+        mod, log = ctx.moduleCreateFromPTX(
+			module_opts,
+			pipeline_opts,
+			ptx_string,
+			)
     return ( ctx, mod )
