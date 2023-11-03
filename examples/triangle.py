@@ -252,7 +252,7 @@ def create_program_groups( ctx, module ):
         )
     print( "\tProgramGroup hitgroup create log: <<<{}>>>".format( log ) )
 
-    return [ raygen_prog_group, miss_prog_group, hitgroup_prog_group ]
+    return [ raygen_prog_group[0], miss_prog_group[0], hitgroup_prog_group[0] ]
 
 
 def create_pipeline( ctx, program_groups, pipeline_compile_options ):
