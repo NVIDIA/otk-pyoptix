@@ -160,7 +160,7 @@ def create_accel( ctx ):
     triangle_input_flags = [ optix.GEOMETRY_FLAG_NONE ]
     triangle_input = optix.BuildInputTriangleArray()
     triangle_input.vertexFormat  = optix.VERTEX_FORMAT_FLOAT3
-    triangle_input.numVertices   = len( vertices )
+    triangle_input.numVertices   = len( vertices )//3
     triangle_input.vertexBuffers = [ vertices.data.ptr ]
     triangle_input.flags         = triangle_input_flags
     triangle_input.numSbtRecords = 1;

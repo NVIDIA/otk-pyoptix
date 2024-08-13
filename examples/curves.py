@@ -196,7 +196,7 @@ def create_accel():
     curve_input = optix.BuildInputCurveArray()
 
     curve_input.numPrimitives           = 1
-    curve_input.numVertices             = len( vertices )
+    curve_input.numVertices             = len( vertices )//3
     curve_input.vertexBuffers           = [ vertices.data.ptr ]
     curve_input.widthBuffers            = [ widths.data.ptr ]
     curve_input.normalBuffers           = [ 0 ]
