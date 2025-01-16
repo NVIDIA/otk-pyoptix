@@ -63,10 +63,10 @@ Windows:
 set PYOPTIX_CMAKE_ARGS=-DOptiX_INSTALL_DIR=C:\ProgramData\NVIDIA Corporation\OptiX SDK 7.0.0
 ```
 
-Build and install using `setuptools`:
+Build and install using `pip` and `setuptools.py`:
 ```
 cd optix
-python setup.py install
+pip install .
 ```
 
 When compiling against an Optix 7.0 SDK an additional environment variable needs to be set

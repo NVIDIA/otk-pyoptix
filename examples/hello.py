@@ -13,7 +13,8 @@ import numpy as np    # Packing of structures in C-compatible format
 import array
 import ctypes         # C interop helpers
 from PIL import Image # Image IO
-from pynvrtc.compiler import Program
+#from pynvrtc.compiler import Program
+from cuda.bindings import runtime, nvrtc
 
 import path_util
 
@@ -25,6 +26,19 @@ import path_util
 #-------------------------------------------------------------------------------
 pix_width  = 512
 pix_height = 512
+
+
+
+def checkNVRTC(result):
+    if result[0].value:
+        raise RuntimeError("NVRTC error code={}({})".format(result[0].value, nvrtc.nvrtcGetErrorString(result[0])[1]))
+    if len(result) == 1:
+        return None
+    elif len(result) == 2:
+        return result[1]
+    else:
+        return result[1:]
+
 
 class Logger:
     def __init__( self ):
@@ -75,34 +89,37 @@ def array_to_device_memory( numpy_array, stream=cp.cuda.Stream() ):
 
 
 def compile_cuda( cuda_file ):
-    with open( cuda_file, 'rb' ) as f:
-        src = f.read()
-    nvrtc_dll = os.environ.get('NVRTC_DLL')
-    if nvrtc_dll is None:
-        nvrtc_dll = ''
-    print("NVRTC_DLL = {}".format(nvrtc_dll))
-    prog = Program( src.decode(), cuda_file,
-                    lib_name= nvrtc_dll )
     compile_options = [
-        '-use_fast_math', 
-        '-lineinfo',
-        '-default-device',
-        '-std=c++11',
-        '-rdc',
-        'true',
-        f'-I{path_util.include_path}',
-        f'-I{path_util.cuda_tk_path}'
+        b'-use_fast_math', 
+        b'-lineinfo',
+        b'-default-device',
+        b'-std=c++11',
+        b'-rdc',
+        b'true',
+        f'-I{path_util.include_path}'.encode(),
+        f'-I{path_util.cuda_tk_path}'.encode()
     ]
-    print("pynvrtc compile options = {}".format(compile_options))
-
     # Optix 7.0 compiles need path to system stddef.h
     # the value of optix.stddef_path is compiled in constant. When building
     # the module, the value can be specified via an environment variable, e.g.
     #   export PYOPTIX_STDDEF_DIR="/usr/include/linux"
     if not optix_version_gte( (7,1) ):
         compile_options.append( f'-I{path_util.stddef_path}' )
+    print("pynvrtc compile options = {}".format(compile_options))
 
-    ptx  = prog.compile( compile_options )
+    with open( cuda_file, 'rb' ) as f:
+        src = f.read()
+
+    # Create program
+    prog = checkNVRTC(nvrtc.nvrtcCreateProgram(src, cuda_file.encode(), 0, [], []))
+
+    # Compile program
+    checkNVRTC(nvrtc.nvrtcCompileProgram(prog, len(compile_options), compile_options))
+
+    # Get PTX from compilation
+    ptxSize = checkNVRTC(nvrtc.nvrtcGetPTXSize(prog))
+    ptx = b" " * ptxSize
+    checkNVRTC(nvrtc.nvrtcGetPTX(prog, ptx))
     return ptx
 
 
