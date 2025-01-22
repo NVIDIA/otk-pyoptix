@@ -1,4 +1,5 @@
+pytest
 cupy
 numpy
 Pillow
-pytest
+cuda-python
