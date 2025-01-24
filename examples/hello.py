@@ -29,8 +29,14 @@ pix_height = 512
 
 
 
-def checkNVRTC(result):
+def checkNVRTC(result, prog = None):
     if result[0].value:
+        if prog:
+            (res, logsize) = nvrtc.nvrtcGetProgramLogSize(prog)
+            if not res.value:
+                log = b" " * logsize
+                nvrtc.nvrtcGetProgramLog(prog, log)
+                print(log.decode())
         raise RuntimeError("NVRTC error code={}({})".format(result[0].value, nvrtc.nvrtcGetErrorString(result[0])[1]))
     if len(result) == 1:
         return None
@@ -114,7 +120,7 @@ def compile_cuda( cuda_file ):
     prog = checkNVRTC(nvrtc.nvrtcCreateProgram(src, cuda_file.encode(), 0, [], []))
 
     # Compile program
-    checkNVRTC(nvrtc.nvrtcCompileProgram(prog, len(compile_options), compile_options))
+    checkNVRTC(nvrtc.nvrtcCompileProgram(prog, len(compile_options), compile_options), prog)
 
     # Get PTX from compilation
     ptxSize = checkNVRTC(nvrtc.nvrtcGetPTXSize(prog))

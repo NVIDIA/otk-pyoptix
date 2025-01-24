@@ -8,7 +8,10 @@ Python bindings for OptiX 7.
 ### Dependencies
 
 #### OptiX SDK
-Install any [OptiX SDK](https://developer.nvidia.com/designworks/optix/download) version 7.6 or newer.
+Install [OptiX SDK](https://developer.nvidia.com/designworks/optix/download) version 7.6 or newer.
+
+#### CUDA SDK
+Install [CUDA SDK](https://developer.nvidia.com/cuda-downloads) version 12.6 or newer required for examples, otherwise as required by your OptiX SDK.
 
 #### Build system requirements:
 * [cmake](https://cmake.org/)
@@ -20,8 +23,7 @@ To run the PyOptiX examples or tests, the python modules specified in `PyOptiX/r
 * cupy
 * numpy
 * Pillow
-* pynvrtc
-* OpenEXR
+* cuda-python 
 
 ### Virtual Environment
 In most cases, it makes sense to setup a python environment.  Below are examples of how to setup your environment via either`Conda` or `venv`.
