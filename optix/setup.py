@@ -6,11 +6,13 @@ import os
 import re
 import sys
 import platform
+import shlex
 import subprocess
 
-from setuptools import setup, Extension
+from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
+import shutil
 
 
 class CMakeExtension(Extension):
@@ -41,6 +43,12 @@ class CMakeBuild(build_ext):
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
 
+        # Copy __init__.py to the package directory
+        init_src = os.path.join(os.path.dirname(__file__), 'optix_pkg', '__init__.py')
+        init_dst = os.path.join(extdir, '__init__.py')
+        os.makedirs(extdir, exist_ok=True)
+        shutil.copy2(init_src, init_dst)
+
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
                       '-DPYTHON_EXECUTABLE=' + sys.executable]
 
@@ -56,8 +64,12 @@ class CMakeBuild(build_ext):
             cmake_args += ['-DCMAKE_BUILD_TYPE=' + cfg]
             build_args += ['--', '-j2']
 
+        # Dedicated variable for OptiX path - handles spaces without quoting issues
+        if "OPTIX_INSTALL_DIR" in os.environ:
+            cmake_args += ["-DOptiX_INSTALL_DIR=" + os.environ['OPTIX_INSTALL_DIR']]
+
         if "PYOPTIX_CMAKE_ARGS" in os.environ:
-            cmake_args += os.environ[ 'PYOPTIX_CMAKE_ARGS' ].split()
+            cmake_args += shlex.split(os.environ[ 'PYOPTIX_CMAKE_ARGS' ])
 
         # the following is only needed for 7.0 compiles, because the optix device header of that
         # first version included stddef.h.
@@ -82,7 +94,7 @@ setup(
     author_email='kmorley@nvidia.com',
     description='Python bindings for NVIDIA OptiX',
     long_description='',
-    ext_modules=[CMakeExtension('optix')],
+    ext_modules=[CMakeExtension('optix._optix')],
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
 )

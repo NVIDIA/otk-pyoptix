@@ -2315,7 +2315,7 @@ py::bytes getDeviceRepresentation( py::object obj )
 } // end namespace pyoptix
 
 
-PYBIND11_MODULE( optix, m )
+PYBIND11_MODULE( _optix, m )
 {
     m.doc() = R"pbdoc(
         OptiX API

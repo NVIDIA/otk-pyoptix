@@ -38,7 +38,7 @@ endmacro()
 
 # Locate the OptiX distribution.  Search relative to the SDK first, then look in the system.
 
-find_path(OptiX_ROOT_DIR NAMES include/optix.h PATHS ${OptiX_INSTALL_DIR})
+find_path(OptiX_ROOT_DIR NAMES include/optix.h PATHS "${OptiX_INSTALL_DIR}")
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(OptiX

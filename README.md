@@ -54,27 +54,46 @@ pip install pynvrtc
 ```
 
 ### Building and installing the `optix` Python module
-Point `setuptools/CMake` to Optix by setting the following environment variable.
+Point `setuptools/CMake` to OptiX by setting the `OPTIX_INSTALL_DIR` environment variable.
 
 Linux:
-```
-export PYOPTIX_CMAKE_ARGS="-DOptiX_INSTALL_DIR=<optix install dir>"
-```
-Windows:
-```
-set PYOPTIX_CMAKE_ARGS=-DOptiX_INSTALL_DIR=C:\ProgramData\NVIDIA Corporation\OptiX SDK 7.0.0
-```
-
-Build and install using `pip` and `setuptools.py`:
-```
+```bash
+export OPTIX_INSTALL_DIR=/path/to/OptiX-SDK
 cd optix
 pip install .
 ```
 
-When compiling against an Optix 7.0 SDK an additional environment variable needs to be set
+Windows (PowerShell):
+```powershell
+$env:OPTIX_INSTALL_DIR = 'C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0'
+cd optix
+pip install .
+```
+
+Windows (cmd):
+```cmd
+set OPTIX_INSTALL_DIR=C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0
+cd optix
+pip install .
+```
+
+**Note:** Paths with spaces are handled correctly.
+
+For advanced use cases, additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS`.
+
+When compiling against an OptiX 7.0 SDK an additional environment variable needs to be set
 containing a path to the system's stddef.h location. E.g.
 ```
 export PYOPTIX_STDDEF_DIR="/usr/include/linux"
+```
+
+### Windows: CUDA DLL Loading (Python 3.8+)
+
+Python 3.8+ on Windows no longer uses `PATH` to find DLLs. PyOptiX will auto-detect
+CUDA from the `CUDA_PATH` environment variable. If auto-detection fails, set `CUDA_BIN_DIR`:
+
+```powershell
+$env:CUDA_BIN_DIR = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\bin'
 ```
 
 ## Running the Examples
