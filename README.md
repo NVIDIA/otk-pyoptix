@@ -50,30 +50,28 @@ conda activate pyoptix
 ```
 
 ### Building and installing the `optix` Python module
-Point `setuptools/CMake` to OptiX by setting the `OPTIX_INSTALL_DIR` environment variable.
+Point `setuptools/CMake` to OptiX by setting the `OptiX_INSTALL_DIR` environment variable.
 
 Linux:
 ```bash
-export OPTIX_INSTALL_DIR=/path/to/OptiX-SDK
+export OptiX_INSTALL_DIR=/path/to/OptiX-SDK
 cd optix
 pip install .
 ```
 
 Windows (PowerShell):
 ```powershell
-$env:OPTIX_INSTALL_DIR = 'C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0'
+$env:OptiX_INSTALL_DIR = 'C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0'
 cd optix
 pip install .
 ```
 
 Windows (cmd):
 ```cmd
-set OPTIX_INSTALL_DIR=C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0
+set OptiX_INSTALL_DIR=C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0
 cd optix
 pip install .
 ```
-
-**Note:** Paths with spaces are handled correctly.
 
 For advanced use cases, additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS`.
 

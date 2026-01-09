@@ -65,8 +65,8 @@ class CMakeBuild(build_ext):
             build_args += ['--', '-j2']
 
         # Dedicated variable for OptiX path - handles spaces without quoting issues
-        if "OPTIX_INSTALL_DIR" in os.environ:
-            cmake_args += ["-DOptiX_INSTALL_DIR=" + os.environ['OPTIX_INSTALL_DIR']]
+        if "OptiX_INSTALL_DIR" in os.environ:
+            cmake_args += ["-DOptiX_INSTALL_DIR=" + os.environ['OptiX_INSTALL_DIR']]
 
         if "PYOPTIX_CMAKE_ARGS" in os.environ:
             cmake_args += shlex.split(os.environ[ 'PYOPTIX_CMAKE_ARGS' ])
