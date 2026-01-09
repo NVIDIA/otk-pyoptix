@@ -1,0 +1,5 @@
+__pycache__/
+examples/my.png
+examples/path_util.py
+optix/build/
+optix/optix.egg-info/
