@@ -24,7 +24,7 @@ jobs:
           package-dir: optix
           output-dir: wheelhouse
         env:
-          CIBW_BUILD: "cp39-manylinux_x86_64 cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp314-manylinux_x86_64"
+          CIBW_BUILD: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp314-manylinux_x86_64"
           CIBW_ENVIRONMENT: >-
             OptiX_INSTALL_DIR=/project/optix-sdk
             CUDAToolkit_ROOT=/usr/local/cuda-12.6
@@ -61,11 +61,6 @@ jobs:
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    environment:
-      name: pypi
-      url: https://pypi.org/p/pyoptix-contrib
-    permissions:
-      id-token: write
 
     steps:
       - uses: actions/download-artifact@v4
@@ -75,3 +70,5 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
