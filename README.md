@@ -1,17 +1,27 @@
 # PyOptiX
 
-Python bindings for OptiX 7.
+Python bindings for NVIDIA OptiX 7+ ray tracing SDK.
+
+PyOptiX provides high-performance Python bindings for NVIDIA OptiX, enabling GPU-accelerated ray tracing in Python applications. OptiX is a high-performance ray tracing API designed for optimal performance on NVIDIA GPUs.
+
+## Quick Install
+
+```bash
+# Install from PyPI (OptiX headers are bundled)
+pip install pyoptix
+```
+
+**Note**: You only need CUDA Toolkit installed. OptiX headers are automatically included.
 
 ## Installation
 
 
 ### Dependencies
 
-#### OptiX SDK
-Install [OptiX SDK](https://developer.nvidia.com/designworks/optix/download) version 7.6 or newer.
+#### CUDA Toolkit
+Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) version 10.0 or newer.
 
-#### CUDA SDK
-Install [CUDA SDK](https://developer.nvidia.com/cuda-downloads) version 12.6 or newer required for examples, otherwise as required by your OptiX SDK.
+**Note**: OptiX headers are automatically fetched during build. You do NOT need to install the OptiX SDK separately.
 
 #### Build system requirements:
 * [cmake](https://cmake.org/)
@@ -49,46 +59,20 @@ Activate the environment:
 conda activate pyoptix
 ```
 
-### Building and installing the `optix` Python module
-Point `setuptools/CMake` to OptiX by setting the `OptiX_INSTALL_DIR` environment variable.
+### Building PyOptiX from source
 
-Linux:
+If you want to build from the git repository:
+
 ```bash
-export OptiX_INSTALL_DIR=/path/to/OptiX-SDK
-cd optix
+git clone https://github.com/NVIDIA/otk-pyoptix
+cd otk-pyoptix
 pip install .
 ```
 
-Windows (PowerShell):
-```powershell
-$env:OptiX_INSTALL_DIR = 'C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0'
-cd optix
-pip install .
-```
+OptiX headers will be automatically fetched from the [NVIDIA/optix-dev](https://github.com/NVIDIA/optix-dev) repository during the build process.
 
-Windows (cmd):
-```cmd
-set OptiX_INSTALL_DIR=C:\ProgramData\NVIDIA Corporation\OptiX SDK 9.0.0
-cd optix
-pip install .
-```
-
-For advanced use cases, additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS`.
-
-When compiling against an OptiX 7.0 SDK an additional environment variable needs to be set
-containing a path to the system's stddef.h location. E.g.
-```
-export PYOPTIX_STDDEF_DIR="/usr/include/linux"
-```
-
-### Windows: CUDA DLL Loading (Python 3.8+)
-
-Python 3.8+ on Windows no longer uses `PATH` to find DLLs. PyOptiX will auto-detect
-CUDA from the `CUDA_PATH` environment variable. If auto-detection fails, set `CUDA_BIN_DIR`:
-
-```powershell
-$env:CUDA_BIN_DIR = 'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9\bin'
-```
+**Advanced Options:**
+- Additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS` environment variable
 
 ## Running the Examples
 

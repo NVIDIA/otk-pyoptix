@@ -1,60 +1,69 @@
-#
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#  * Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-#  * Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-#  * Neither the name of NVIDIA CORPORATION nor the names of its
-#    contributors may be used to endorse or promote products derived
-#    from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
-# OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
+# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
 
-find_package(Python REQUIRED)
+cmake_minimum_required(VERSION 3.17...3.31)
 
-# temporary guard while awaiting 8.0 fixes
-if(OPTIX_VERSION VERSION_GREATER 7.7)
-    return()
+# Use scikit-build-core provided project name and version
+project(
+    ${SKBUILD_PROJECT_NAME}
+    VERSION ${SKBUILD_PROJECT_VERSION}
+    LANGUAGES CXX
+)
+
+#------------------------------------------------------------------------------
+# Python and pybind11
+#------------------------------------------------------------------------------
+
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+find_package(pybind11 CONFIG REQUIRED)
+
+#------------------------------------------------------------------------------
+# Fetch OptiX headers from NVIDIA/optix-dev repository
+# This allows building from PyPI without requiring the full OptiX SDK
+#------------------------------------------------------------------------------
+
+include(FetchContent)
+
+message(STATUS "Fetching OptiX headers from NVIDIA/optix-dev...")
+FetchContent_Declare(
+    optix_headers
+    GIT_REPOSITORY https://github.com/NVIDIA/optix-dev
+    GIT_TAG        v9.1.0
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(optix_headers)
+
+# Create OptiX::OptiX interface target using fetched headers
+add_library(OptiX::OptiX INTERFACE IMPORTED)
+target_include_directories(OptiX::OptiX INTERFACE ${optix_headers_SOURCE_DIR}/include)
+
+message(STATUS "Using OptiX headers from: ${optix_headers_SOURCE_DIR}/include")
+
+# Find CUDA Toolkit (required for CUDA runtime)
+if(NOT TARGET CUDA::cuda_driver)
+  find_package(CUDAToolkit 10.0 REQUIRED)
 endif()
 
-file(COPY optix examples requirements.txt test DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+configure_file("${CMAKE_SOURCE_DIR}/path_util.py.in" "${CMAKE_SOURCE_DIR}/examples/path_util.py")
 
-if(UNIX)
-    add_custom_command(OUTPUT env.timestamp
-        COMMAND ${Python_EXECUTABLE} -m venv env
-        COMMAND bash -c "source ./env/bin/activate"
-        COMMAND ./env/bin/pip install -r requirements.txt
-        COMMAND ${CMAKE_COMMAND} -E touch env.timestamp
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        COMMENT "Creating virtual environment for PyOptiX build")
-else()
-    add_custom_command(OUTPUT env.timestamp
-        COMMAND ${Python_EXECUTABLE} -m venv env
-        COMMAND powershell ./env/Scripts/Activate.ps1
-        COMMAND powershell ./env/Scripts/pip.exe install -r requirements.txt
-        COMMAND ${CMAKE_COMMAND} -E touch env.timestamp
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        COMMENT "Creating virtual environment for PyOptiX build")
-endif()
+#------------------------------------------------------------------------------
+# Main build
+#------------------------------------------------------------------------------
 
-add_custom_target(PyOptiX ALL 
-    ${CMAKE_COMMAND} -E env PYOPTIX_CMAKE_ARGS="-DOptiX_INSTALL_DIR=${OptiX_INSTALL_DIR}" 
-    ${Python_EXECUTABLE} setup.py build 
-    WORKING_DIRECTORY optix
-    DEPENDS env.timestamp)
+python_add_library(_optix MODULE src/main.cpp WITH_SOABI)
+
+target_link_libraries(_optix PRIVATE
+    OptiX::OptiX
+    CUDA::cuda_driver
+    CUDA::cudart
+    pybind11::headers
+)
+
+target_compile_features(_optix PRIVATE cxx_std_17)
+
+target_compile_definitions(_optix PRIVATE
+    VERSION_INFO=${PROJECT_VERSION}
+)
+
+install(TARGETS _optix DESTINATION ${SKBUILD_PLATLIB_DIR}/optix)

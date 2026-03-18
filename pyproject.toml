@@ -1,0 +1,73 @@
+[build-system]
+requires = [
+    "scikit-build-core>=0.12",
+    "pybind11>=2.13.0",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pyoptix"
+version = "0.1.0"
+description = "Python bindings for NVIDIA OptiX ray tracing SDK"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
+authors = [
+    {name = "Keith Morley", email = "kmorley@nvidia.com"},
+]
+keywords = ["optix", "ray-tracing", "nvidia", "cuda", "gpu", "rendering"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: 3D Rendering",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+]
+
+# No runtime dependencies - users must have OptiX SDK and CUDA installed
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/NVIDIA/otk-pyoptix"
+Documentation = "https://github.com/NVIDIA/otk-pyoptix/blob/master/README.md"
+Repository = "https://github.com/NVIDIA/otk-pyoptix"
+Issues = "https://github.com/NVIDIA/otk-pyoptix/issues"
+
+[dependency-groups]
+test = [
+    "pytest>=7.0",
+]
+examples = [
+    "cupy>=10.0",
+    "numpy>=1.20",
+    "Pillow>=9.0",
+    "cuda-python>=11.0",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "examples"},
+    "build",
+    "twine",
+]
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+cmake.version = ">=3.17"
+cmake.build-type = "Release"
+ninja.version = ">=1.11"
+wheel.packages = ["src/optix"]
+sdist.exclude = [".claude"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = "test_*.py"
