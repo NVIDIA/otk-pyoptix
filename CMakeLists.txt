@@ -45,8 +45,6 @@ if(NOT TARGET CUDA::cuda_driver)
   find_package(CUDAToolkit 10.0 REQUIRED)
 endif()
 
-configure_file("${CMAKE_SOURCE_DIR}/path_util.py.in" "${CMAKE_SOURCE_DIR}/examples/path_util.py")
-
 #------------------------------------------------------------------------------
 # Main build
 #------------------------------------------------------------------------------

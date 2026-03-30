@@ -12,7 +12,7 @@ description = "Python bindings for NVIDIA OptiX ray tracing SDK"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "BSD-3-Clause"
-license-files = ["LICENSE.txt"]
+license-files = ["LICENSE.txt", "OptiX_LICENSE.txt"]
 authors = [
     {name = "Keith Morley", email = "kmorley@nvidia.com"},
 ]
