@@ -102,8 +102,8 @@ def compile_cuda( cuda_file ):
         b'-std=c++11',
         b'-rdc',
         b'true',
-        f'-I{path_util.include_path}'.encode(),
-        f'-I{path_util.cuda_tk_path}'.encode()
+        f'-I{path_util.optix_include_path}'.encode(),
+        f'-I{path_util.cuda_include_path}'.encode()
     ]
     # Optix 7.0 compiles need path to system stddef.h
     # the value of optix.stddef_path is compiled in constant. When building
