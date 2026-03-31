@@ -13,7 +13,7 @@ Installation of the OptiX 9.1 Python bindings can be performed directly via [pip
 pip install pyoptix
 ```
 
-## Installation
+## Source Installation
 
 For a local build and installation from source, including building against legacy OptiX releases, first clone this repository.  Then follow instructions below.
 ```
