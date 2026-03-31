@@ -1,27 +1,31 @@
 # PyOptiX
 
-Python bindings for NVIDIA OptiX 7+ ray tracing SDK.
+Python bindings for NVIDIA OptiX ray tracing SDK.
 
 PyOptiX provides high-performance Python bindings for NVIDIA OptiX, enabling GPU-accelerated ray tracing in Python applications. OptiX is a high-performance ray tracing API designed for optimal performance on NVIDIA GPUs.
 
 ## Quick Install
 
+Installation of the OptiX 9.1 Python bindings can be performed directly via [pip](https://pypi.org/project/pip/).
+ 
 ```bash
 # Install from PyPI (OptiX headers are bundled)
 pip install pyoptix
 ```
 
-**Note**: You only need CUDA Toolkit installed. OptiX headers are automatically included.
-
 ## Installation
 
+For a local build and installation from source, including building against legacy OptiX releases, first clone this repository.  Then follow instructions below.
+```
+git clone https://github.com/NVIDIA/otk-pyoptix
+```
 
 ### Dependencies
 
 #### CUDA Toolkit
 Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) version 10.0 or newer.
 
-**Note**: OptiX headers are automatically fetched during build. You do NOT need to install the OptiX SDK separately.
+**Note**: OptiX headers are automatically fetched during build. You do NOT need to install the OptiX SDK separately to build the `optix` Python module.  However, the SDK will need to be installed to run the examples.
 
 #### Build system requirements:
 * [cmake](https://cmake.org/)
@@ -64,17 +68,16 @@ conda activate pyoptix
 If you want to build from the git repository:
 
 ```bash
-git clone https://github.com/NVIDIA/otk-pyoptix
 cd otk-pyoptix
 pip install .
 ```
-
-OptiX headers will be automatically fetched from the [NVIDIA/optix-dev](https://github.com/NVIDIA/optix-dev) repository during the build process.
 
 **Advanced Options:**
 - Additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS` environment variable
 
 ## Running the Examples
+
+To run the examples the [OptiX SDK](https://developer.nvidia.com/designworks/optix/download) must be installed.  You can then edit `otk-pyoptix/examples/path_util.py` to specify the location of your CUDA and OptiX SDK include directories.  These are used during JIT compilation of the CUDA shaders.
 
 Run the `hello` sample:
 ```
