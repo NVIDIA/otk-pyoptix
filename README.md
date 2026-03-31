@@ -22,6 +22,9 @@ git clone https://github.com/NVIDIA/otk-pyoptix
 
 ### Dependencies
 
+#### Python
+Python versions 3.9+ are supported.
+
 #### CUDA Toolkit
 Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) version 10.0 or newer.
 
@@ -32,12 +35,12 @@ Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) version 10.0
 * [pip](https://pypi.org/project/pip/)
 
 #### Code sample dependencies
-To run the PyOptiX examples or tests, the python modules specified in `PyOptiX/requirements.txt` must be installed:
+To run the PyOptiX examples or tests, the python modules specified in `otk-pyoptix/requirements.txt` must be installed:
 * pytest
 * cupy
 * numpy
 * Pillow
-* cuda-python 
+* cuda-python (12.0 or newer recommended for OptiX 9.1)
 
 ### Virtual Environment
 In most cases, it makes sense to setup a python environment.  Below are examples of how to setup your environment via either`Conda` or `venv`.
@@ -56,7 +59,7 @@ pip install -r requirements.txt
 #### Conda Environment
 Create an environment containing pre-requisites:
 ```
-conda create -n pyoptix python numpy conda-forge::cupy pillow pytest
+conda create -n pyoptix python pytest conda-forge::cupy numpy pillow cuda-python
 ```
 Activate the environment:
 ```
