@@ -66,23 +66,17 @@ In addition, the [OptiX SDK](https://developer.nvidia.com/designworks/optix/down
 In most cases, it makes sense to setup a python environment.  Below are examples of how to setup your environment with required example dependencies via either`Conda` or `venv`.
 
 #### `venv` Virtual Environment
-Create and activate a new virtual environment:
+Create and activate a new virtual environment, then install pre-requisites:
 ```
 python3 -m venv env
 source env/bin/activate
-```
-Install all dependencies:
-```
 pip install -r requirements.txt
 ```
 
 #### Conda Environment
-Create an environment containing pre-requisites:
+Create and activate an environment containing pre-requisites:
 ```
 conda create -n pyoptix python pytest conda-forge::cupy numpy pillow cuda-python
-```
-Activate the environment:
-```
 conda activate pyoptix
 ```
 
