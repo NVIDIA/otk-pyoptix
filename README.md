@@ -34,7 +34,23 @@ Install [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) version 10.0
 * [cmake](https://cmake.org/)
 * [pip](https://pypi.org/project/pip/)
 
-#### Code sample dependencies
+
+### Building PyOptiX from source
+
+Once the otk-pyoptix repository has been cloned and all dependencies satisfied:
+
+```bash
+cd otk-pyoptix
+pip install .
+```
+
+**Advanced Options:**
+- Additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS` environment variable
+
+## Running the Examples
+
+### Dependencies
+
 To run the PyOptiX examples or tests, the python modules specified in `otk-pyoptix/requirements.txt` must be installed:
 * pytest
 * cupy
@@ -42,8 +58,10 @@ To run the PyOptiX examples or tests, the python modules specified in `otk-pyopt
 * Pillow
 * cuda-python (12.0 or newer recommended for OptiX 9.1)
 
+In addition, the [OptiX SDK](https://developer.nvidia.com/designworks/optix/download) must be installed to allow JIT compilation of the example shaders.
+
 ### Virtual Environment
-In most cases, it makes sense to setup a python environment.  Below are examples of how to setup your environment via either`Conda` or `venv`.
+In most cases, it makes sense to setup a python environment.  Below are examples of how to setup your environment with required example dependencies via either`Conda` or `venv`.
 
 #### `venv` Virtual Environment
 Create and activate a new virtual environment:
@@ -66,25 +84,11 @@ Activate the environment:
 conda activate pyoptix
 ```
 
-### Building PyOptiX from source
-
-If you want to build from the git repository:
-
-```bash
-cd otk-pyoptix
-pip install .
-```
-
-**Advanced Options:**
-- Additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS` environment variable
-
-## Running the Examples
-
-To run the examples the [OptiX SDK](https://developer.nvidia.com/designworks/optix/download) must be installed.  You can then edit `otk-pyoptix/examples/path_util.py` to specify the location of your CUDA and OptiX SDK include directories.  These are used during JIT compilation of the CUDA shaders.
+### Running the example programs
 
 Run the `hello` sample:
 ```
-cd examples
+cd otk-pyoptix/examples
 python hello.py
 ```
 If the example runs successfully, a green square will be rendered.

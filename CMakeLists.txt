@@ -20,7 +20,6 @@ find_package(pybind11 CONFIG REQUIRED)
 
 #------------------------------------------------------------------------------
 # Fetch OptiX headers from NVIDIA/optix-dev repository
-# This allows building from PyPI without requiring the full OptiX SDK
 #------------------------------------------------------------------------------
 
 include(FetchContent)

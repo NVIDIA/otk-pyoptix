@@ -14,7 +14,7 @@ requires-python = ">=3.9"
 license = "BSD-3-Clause"
 license-files = ["LICENSE.txt", "OptiX_LICENSE.txt"]
 authors = [
-    {name = "Keith Morley", email = "kmorley@nvidia.com"},
+    {name = "R. Keith Morley", email = "kmorley@nvidia.com"},
 ]
 keywords = ["optix", "ray-tracing", "nvidia", "cuda", "gpu", "rendering"]
 classifiers = [
@@ -33,7 +33,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
 ]
 
-# No runtime dependencies - users must have OptiX SDK and CUDA installed
 dependencies = []
 
 [project.urls]
