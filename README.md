@@ -4,15 +4,15 @@ Python bindings for NVIDIA OptiX ray tracing SDK.
 
 PyOptiX provides high-performance Python bindings for NVIDIA OptiX, enabling GPU-accelerated ray tracing in Python applications. OptiX is a high-performance ray tracing API designed for optimal performance on NVIDIA GPUs.
 
+---
 ## Quick Installation
 
 Installation of the OptiX 9.1 Python bindings can be performed directly via [pip](https://pypi.org/project/pip/).
  
 ```bash
-# Install from PyPI (OptiX headers are bundled)
 pip install pyoptix
 ```
-
+---
 ## Source Installation
 
 For a local build and installation from source, including building against legacy OptiX releases, first clone this repository.  Then follow instructions below.
@@ -47,6 +47,7 @@ pip install .
 **Advanced Options:**
 - Additional CMake arguments can be passed via `PYOPTIX_CMAKE_ARGS` environment variable
 
+---
 ## Examples programs
 
 Several example programs are included in the github repository to allow testing of the API and a starting point for user applications.
@@ -89,6 +90,7 @@ python hello.py
 ```
 If the example runs successfully, a green square will be rendered.
 
+---
 ## Running the Test Suite
 
 Test tests are using `pytest` and can be run from the test directory like this:
