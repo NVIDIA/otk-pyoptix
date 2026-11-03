@@ -3,7 +3,6 @@
 # license that can be found in the LICENSE file.
 
 import optix 
-import cupy as cp
 
 import array
 import pytest

@@ -5,7 +5,6 @@
 
 
 import optix
-import cupy as cp
 
 ptx_string_old = '''
 //
