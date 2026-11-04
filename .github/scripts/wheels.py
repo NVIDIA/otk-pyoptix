@@ -31,6 +31,9 @@ DISTRIBUTION = "pyoptix"
 # The wheels contain only the core module and no dependencies. Anything else,
 # such as tests, examples or a library bundled by auditwheel, is a mistake.
 PACKAGES = {"optix"}
+# The CUDA runtime is linked statically. A reference to its shared library means
+# that setting was lost, and the wheel would not import without a CUDA Toolkit.
+CUDA_RUNTIME_LIBRARIES = (b"cudart64_", b"libcudart.so")
 
 # Platform tags of the wheels that each platform workflow builds.
 _MANYLINUX = r"manylinux(?:_\d+_\d+|\d+)_x86_64"
@@ -75,11 +78,18 @@ def _check_wheel(wheel: Path, version: str) -> None:
         dist_infos = {name for name in top_level if name.endswith(".dist-info")}
         unexpected = top_level - PACKAGES - dist_infos
         if unexpected:
-            raise SystemExit(f"{wheel.name}: unexpected contents {sorted(unexpected)}; expected only {sorted(PACKAGES)}")
+            files = sorted(name for name in archive.namelist() if name.split("/")[0] in unexpected)
+            raise SystemExit(f"{wheel.name}: unexpected contents {files[:10]}; expected only {sorted(PACKAGES)}")
         if len(dist_infos) != 1:
             raise SystemExit(f"{wheel.name}: expected one .dist-info directory, found {sorted(dist_infos)}")
         (dist_info,) = dist_infos
         metadata = BytesParser().parsebytes(archive.read(f"{dist_info}/METADATA"))
+        for name in archive.namelist():
+            if name.endswith((".so", ".pyd")):
+                data = archive.read(name)
+                found = [library.decode() for library in CUDA_RUNTIME_LIBRARIES if library in data]
+                if found:
+                    raise SystemExit(f"{wheel.name}: {name} refers to the CUDA runtime library {found}")
     _check_metadata(wheel.name, metadata, version)
     if metadata.get_all("Requires-Dist"):
         raise SystemExit(f"{wheel.name}: the wheel must not declare dependencies: {metadata.get_all('Requires-Dist')}")

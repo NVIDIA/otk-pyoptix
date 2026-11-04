@@ -84,6 +84,11 @@ repair-wheel-command = "auditwheel repair --exclude libcuda.so.1 -w {dest_dir} {
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
+# Since cibuildwheel 4.0 the default is delvewheel, which copies the DLLs the
+# extension needs from the build machine into the wheel. Bundle nothing, as on
+# Linux: the NVIDIA driver and the Visual C++ Redistributable come from the
+# user's machine.
+repair-wheel-command = ""
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
