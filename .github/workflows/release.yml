@@ -6,7 +6,8 @@
 #
 # To release, set the version in pyproject.toml, merge it to master, then push
 # the matching tag, for example "git tag v9.1.1 && git push origin v9.1.1".
-# The wheels are built and tested first, then published by Trusted Publishing.
+# The wheels are built and checked first, then published by Trusted Publishing.
+# The test suite needs a GPU, so run it by hand before tagging, see RELEASING.md.
 #
 # One-time setup:
 #   * GitHub: create an environment named "pypi" with required reviewers.
@@ -29,22 +30,20 @@ concurrency:
 
 jobs:
   linux:
-    name: Build and test Linux wheels
+    name: Build Linux wheels
     if: github.repository == 'NVIDIA/otk-pyoptix'
-    uses: ./.github/workflows/gpu-platform.yml
+    uses: ./.github/workflows/build-platform.yml
     with:
       platform: linux-x86_64
       build-os: ubuntu-24.04
-      gpu-runner: linux-amd64-gpu-rtxpro6000-latest-1
 
   windows:
-    name: Build and test Windows wheels
+    name: Build Windows wheels
     if: github.repository == 'NVIDIA/otk-pyoptix'
-    uses: ./.github/workflows/gpu-platform.yml
+    uses: ./.github/workflows/build-platform.yml
     with:
       platform: windows-x86_64
       build-os: windows-2022
-      gpu-runner: windows-amd64-gpu-rtxpro6000-latest-1
 
   prepare:
     name: Validate release distributions
@@ -75,9 +74,9 @@ jobs:
         with:
           name: wheel-windows-x86_64
           path: wheels/windows-x86_64
-      # The artifact storage is shared with the self-hosted test jobs, so check
-      # the wheels against the digests exported by the GitHub-hosted builds.
-      - name: Verify the wheels are the GitHub-hosted build output
+      # Check that the wheels are what the build jobs produced and were not
+      # replaced in the artifact storage afterwards.
+      - name: Verify the wheels are the build output
         env:
           LINUX_DIGEST: ${{ needs.linux.outputs.wheel-digest }}
           WINDOWS_DIGEST: ${{ needs.windows.outputs.wheel-digest }}
@@ -85,7 +84,7 @@ jobs:
           verify() {
             actual=$(uv run --no-project python -I .github/scripts/wheels.py digest "wheels/$1")
             if [ "$actual" != "$2" ]; then
-              echo "::error::The $1 wheels do not match the GitHub-hosted build output"
+              echo "::error::The $1 wheels do not match the build output"
               exit 1
             fi
           }

@@ -67,7 +67,7 @@ ninja.version = ">=1.11"
 wheel.packages = ["src/optix"]
 sdist.exclude = [".claude"]
 
-# Wheels are built by .github/workflows/gpu-platform.yml, which also sets up CUDA.
+# Wheels are built by .github/workflows/build-platform.yml, which also sets up CUDA.
 [tool.cibuildwheel]
 # Keep in sync with the Python classifiers above.
 build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*"]

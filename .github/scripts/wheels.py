@@ -7,8 +7,9 @@
 digest DIRECTORY
     Print one SHA-256 that covers the name and content of every wheel in
     DIRECTORY. In the C locale it equals ``sha256sum *.whl | sha256sum``.
-pythons DIRECTORY
-    Print the CPython versions of the wheels in DIRECTORY as a JSON list.
+check PLATFORM DIRECTORY
+    Check that DIRECTORY holds the wheels that the platform workflow should
+    build for the version in pyproject.toml.
 collect --tag TAG --out DIRECTORY --sdist DIRECTORY --wheels PLATFORM=DIRECTORY ...
     Check that the wheels and the sdist are exactly what a release of TAG
     should publish, and copy them to one directory.
@@ -18,7 +19,6 @@ Run with ``python -I`` and no third-party packages.
 
 import argparse
 import hashlib
-import json
 import re
 import shutil
 import tarfile
@@ -55,13 +55,6 @@ def _wheels(directory: Path) -> list[Path]:
     return wheels
 
 
-def _python_version(python_tag: str) -> str:
-    match = re.fullmatch(r"cp3(\d+)", python_tag)
-    if not match:
-        raise SystemExit(f"Unexpected Python tag: {python_tag}")
-    return f"3.{match.group(1)}"
-
-
 def digest(directory: Path) -> str:
     lines = "".join(
         f"{hashlib.sha256(wheel.read_bytes()).hexdigest()}  {wheel.name}\n" for wheel in _wheels(directory)
@@ -69,16 +62,11 @@ def digest(directory: Path) -> str:
     return hashlib.sha256(lines.encode()).hexdigest()
 
 
-def pythons(directory: Path) -> list[str]:
-    versions = {_python_version(_wheel_tags(wheel)[0]) for wheel in _wheels(directory)}
-    return sorted(versions, key=lambda version: int(version.split(".")[1]))
-
-
 def _check_metadata(source: str, metadata, version: str) -> None:
     if metadata["Name"] != DISTRIBUTION:
         raise SystemExit(f"{source}: unexpected distribution {metadata['Name']}")
     if metadata["Version"] != version:
-        raise SystemExit(f"{source}: version {metadata['Version']} does not match the tag (expected {version})")
+        raise SystemExit(f"{source}: version {metadata['Version']} does not match the expected version {version}")
 
 
 def _check_wheel(wheel: Path, version: str) -> None:
@@ -112,35 +100,42 @@ def _check_sdist(sdist: Path, version: str) -> None:
     _check_metadata(sdist.name, metadata, version)
 
 
+def _pyproject() -> dict:
+    return tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+
+
+def check(platform: str, directory: Path, version: str) -> list[Path]:
+    """Check the wheels built for one platform and return them."""
+    # The Python versions come from the same list that cibuildwheel builds.
+    expected = set()
+    for selector in _pyproject()["tool"]["cibuildwheel"]["build"]:
+        if not re.fullmatch(r"cp3\d+-\*", selector):
+            raise SystemExit(f"Unsupported tool.cibuildwheel.build selector: {selector}")
+        expected.add(selector.removesuffix("-*"))
+
+    wheels = _wheels(directory)
+    found = []
+    for wheel in wheels:
+        python_tag, abi_tag, platform_tag = _wheel_tags(wheel)
+        if abi_tag != python_tag:
+            raise SystemExit(f"{wheel.name}: expected the {python_tag} ABI")
+        if not PLATFORM_TAGS[platform].fullmatch(platform_tag):
+            raise SystemExit(f"{wheel.name}: unexpected {platform} platform tag {platform_tag}")
+        _check_wheel(wheel, version)
+        found.append(python_tag)
+    if sorted(found) != sorted(expected):
+        raise SystemExit(f"{platform}: expected wheels for {sorted(expected)}, found {sorted(found)}")
+    return wheels
+
+
 def collect(tag: str, wheel_dirs: dict[str, Path], sdist_dir: Path, out_dir: Path) -> None:
     if not re.fullmatch(r"v\d.*", tag):
         raise SystemExit(f"Tag must look like v<version>, got {tag}")
     version = tag.removeprefix("v")
 
-    # The Python versions come from the same list that cibuildwheel builds.
-    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
-    selectors = pyproject["tool"]["cibuildwheel"]["build"]
-    expected = set()
-    for selector in selectors:
-        if not re.fullmatch(r"cp3\d+-\*", selector):
-            raise SystemExit(f"Unsupported tool.cibuildwheel.build selector: {selector}")
-        expected.add(selector.removesuffix("-*"))
-
     out_dir.mkdir(parents=True)
     for platform, directory in wheel_dirs.items():
-        wheels = _wheels(directory)
-        found = []
-        for wheel in wheels:
-            python_tag, abi_tag, platform_tag = _wheel_tags(wheel)
-            if abi_tag != python_tag:
-                raise SystemExit(f"{wheel.name}: expected the {python_tag} ABI")
-            if not PLATFORM_TAGS[platform].fullmatch(platform_tag):
-                raise SystemExit(f"{wheel.name}: unexpected {platform} platform tag {platform_tag}")
-            _check_wheel(wheel, version)
-            found.append(python_tag)
-        if sorted(found) != sorted(expected):
-            raise SystemExit(f"{platform}: expected wheels for {sorted(expected)}, found {sorted(found)}")
-        for wheel in wheels:
+        for wheel in check(platform, directory, version):
             shutil.copy2(wheel, out_dir / wheel.name)
 
     sdists = list(sdist_dir.glob("*.tar.gz"))
@@ -156,8 +151,10 @@ def collect(tag: str, wheel_dirs: dict[str, Path], sdist_dir: Path, out_dir: Pat
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("digest", "pythons"):
-        commands.add_parser(name).add_argument("directory", type=Path)
+    commands.add_parser("digest").add_argument("directory", type=Path)
+    check_parser = commands.add_parser("check")
+    check_parser.add_argument("platform", choices=sorted(PLATFORM_TAGS))
+    check_parser.add_argument("directory", type=Path)
     collect_parser = commands.add_parser("collect")
     collect_parser.add_argument("--tag", required=True)
     collect_parser.add_argument("--out", type=Path, required=True)
@@ -173,8 +170,11 @@ def main() -> None:
 
     if args.command == "digest":
         print(digest(args.directory))
-    elif args.command == "pythons":
-        print(json.dumps(pythons(args.directory)))
+    elif args.command == "check":
+        wheels = check(args.platform, args.directory, _pyproject()["project"]["version"])
+        print(f"Checked {len(wheels)} {args.platform} wheels:")
+        for wheel in wheels:
+            print(f"  {wheel.name}")
     else:
         wheel_dirs = {}
         for spec in args.wheels:
