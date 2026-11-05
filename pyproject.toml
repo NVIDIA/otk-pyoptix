@@ -67,6 +67,29 @@ ninja.version = ">=1.11"
 wheel.packages = ["src/optix"]
 sdist.exclude = [".claude"]
 
+# Wheels are built by .github/workflows/build-platform.yml, which also sets up CUDA.
+[tool.cibuildwheel]
+# Keep in sync with the Python classifiers above.
+build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*"]
+# The CUDA driver library does not exist on musl.
+skip = ["*-musllinux_*"]
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+manylinux-x86_64-image = "manylinux_2_28"
+# libcuda.so.1 comes from the NVIDIA driver on the user's machine. Without the
+# exclusion auditwheel bundles the driver of the build machine into the wheel.
+repair-wheel-command = "auditwheel repair --exclude libcuda.so.1 -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+# Since cibuildwheel 4.0 the default is delvewheel, which copies the DLLs the
+# extension needs from the build machine into the wheel. Bundle nothing, as on
+# Linux: the NVIDIA driver and the Visual C++ Redistributable come from the
+# user's machine.
+repair-wheel-command = ""
+
 [tool.pytest.ini_options]
 testpaths = ["test"]
 python_files = "test_*.py"

@@ -1,0 +1,96 @@
+# Copyright (c) 2026 NVIDIA CORPORATION All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+
+# Builds and checks the wheels for one platform on a GitHub-hosted runner.
+# Called once per platform by wheels.yml and by release.yml.
+#
+# The wheels contain only the core optix package. They link the CUDA runtime
+# statically and use the driver of the machine they run on, so building them
+# needs no GPU and neither the wheels nor their users need a CUDA Toolkit,
+# cupy or any other package. The module cannot be imported without the NVIDIA
+# driver, so the hosted runners cannot run the test suite. The wheels are
+# checked instead, and the tests are run by hand on a GPU, see RELEASING.md.
+
+name: Build platform
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        description: CUDA redistributable platform, e.g. linux-x86_64
+        required: true
+        type: string
+      build-os:
+        description: GitHub-hosted runner that builds the wheels
+        required: true
+        type: string
+    outputs:
+      wheel-digest:
+        description: Digest of the wheels from this build, see .github/scripts/wheels.py
+        value: ${{ jobs.build.outputs.wheel-digest }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build wheels
+    runs-on: ${{ inputs.build-os }}
+    timeout-minutes: 90
+    outputs:
+      wheel-digest: ${{ steps.wheels.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.13.6"
+          python-version: "3.12"
+          enable-cache: false
+      # Linux wheels are built in a manylinux container, which installs its own
+      # CUDA Toolkit components below. Windows builds run directly on the runner.
+      - name: Install CUDA Toolkit components
+        if: startsWith(inputs.platform, 'windows')
+        shell: bash
+        run: uv run --no-project python .github/scripts/install_cuda.py --platform ${{ inputs.platform }} --prefix "$RUNNER_TEMP/cuda"
+      # The Python versions, the manylinux policy and the repair step are in
+      # pyproject.toml. Link the CUDA runtime statically because users should
+      # not need a CUDA runtime library to import the module.
+      - name: Build wheels
+        uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
+        env:
+          CIBW_BEFORE_ALL_LINUX: python3 {project}/.github/scripts/install_cuda.py --platform linux-x86_64 --prefix /opt/cuda
+          CIBW_ENVIRONMENT_LINUX: >-
+            CUDA_PATH=/opt/cuda
+            CUDAToolkit_ROOT=/opt/cuda
+            PATH="$PATH:/opt/cuda/bin"
+            SKBUILD_CMAKE_DEFINE="CUDA_cudart_LIBRARY=/opt/cuda/lib/libcudart_static.a"
+          # MSVC reads extra options from CL. PyOptiX's single pybind11 source
+          # exceeds the default COFF section limit without /bigobj. Also avoid
+          # the constexpr std::mutex that crashes with an msvcp140.dll older
+          # than 14.40, as on user machines without a recent VC++
+          # Redistributable. Use the dash form so that no shell rewrites
+          # "/bigobj" into a path.
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            SKBUILD_CMAKE_DEFINE="CUDA_cudart_LIBRARY=${{ env.CUDART_STATIC_LIBRARY }}"
+            CL="-bigobj -D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR"
+      # Check that there is one wheel for every Python version and that each
+      # contains only the optix package and declares no dependencies.
+      - name: Check the wheels
+        shell: bash
+        run: uv run --no-project python -I .github/scripts/wheels.py check ${{ inputs.platform }} wheelhouse
+      # Export the digest directly from this job, so that release.yml can detect
+      # a wheel that was replaced in the artifact storage afterwards.
+      - name: Record wheel digest
+        id: wheels
+        shell: bash
+        run: echo "digest=$(uv run --no-project python -I .github/scripts/wheels.py digest wheelhouse)" >> "$GITHUB_OUTPUT"
+      - name: Upload wheels
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: wheel-${{ inputs.platform }}
+          path: wheelhouse/*.whl
+          retention-days: 7
+          if-no-files-found: error

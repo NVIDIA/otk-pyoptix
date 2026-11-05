@@ -1,0 +1,128 @@
+# Copyright (c) 2026 NVIDIA CORPORATION All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+
+# Publishes PyOptiX to PyPI when a version tag is pushed.
+#
+# To release, set the version in pyproject.toml, merge it to master, then push
+# the matching tag, for example "git tag v9.1.1 && git push origin v9.1.1".
+# The wheels are built and checked first, then published by Trusted Publishing.
+# The test suite needs a GPU, so run it by hand before tagging, see RELEASING.md.
+#
+# One-time setup:
+#   * GitHub: create an environment named "pypi" with required reviewers.
+#   * PyPI: add a trusted publisher for the pyoptix project with owner NVIDIA,
+#     repository otk-pyoptix, workflow release.yml and environment pypi.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: Build Linux wheels
+    if: github.repository == 'NVIDIA/otk-pyoptix'
+    uses: ./.github/workflows/build-platform.yml
+    with:
+      platform: linux-x86_64
+      build-os: ubuntu-24.04
+
+  windows:
+    name: Build Windows wheels
+    if: github.repository == 'NVIDIA/otk-pyoptix'
+    uses: ./.github/workflows/build-platform.yml
+    with:
+      platform: windows-x86_64
+      build-os: windows-2022
+
+  prepare:
+    name: Validate release distributions
+    needs: [linux, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require the tagged commit to be on master
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.13.6"
+          python-version: "3.12"
+          enable-cache: false
+      # Build the sdist before anything else is downloaded into the checkout,
+      # because it includes every file that git does not ignore.
+      - name: Build the source distribution
+        run: uv build --sdist --out-dir sdist
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wheel-linux-x86_64
+          path: wheels/linux-x86_64
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wheel-windows-x86_64
+          path: wheels/windows-x86_64
+      # Check that the wheels are what the build jobs produced and were not
+      # replaced in the artifact storage afterwards.
+      - name: Verify the wheels are the build output
+        env:
+          LINUX_DIGEST: ${{ needs.linux.outputs.wheel-digest }}
+          WINDOWS_DIGEST: ${{ needs.windows.outputs.wheel-digest }}
+        run: |
+          verify() {
+            actual=$(uv run --no-project python -I .github/scripts/wheels.py digest "wheels/$1")
+            if [ "$actual" != "$2" ]; then
+              echo "::error::The $1 wheels do not match the build output"
+              exit 1
+            fi
+          }
+          verify linux-x86_64 "$LINUX_DIGEST"
+          verify windows-x86_64 "$WINDOWS_DIGEST"
+      # Publish only the core module: the wheels for every supported Python
+      # version, which must match the tag, and the source distribution.
+      - name: Collect the distributions and match the release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          uv run --no-project python -I .github/scripts/wheels.py collect \
+            --tag "$RELEASE_TAG" --out publish-dist --sdist sdist \
+            --wheels linux-x86_64=wheels/linux-x86_64 \
+            --wheels windows-x86_64=wheels/windows-x86_64
+      - name: Check package metadata
+        run: uvx twine==7.0.0 check --strict publish-dist/*
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: pypi-distributions
+          path: publish-dist/*
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pyoptix
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pypi-distributions
+          path: dist
+      - name: Publish with Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
