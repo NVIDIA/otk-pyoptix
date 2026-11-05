@@ -17,7 +17,7 @@ For installation instructions and documentation, visit:
 https://github.com/NVIDIA/otk-pyoptix
 """
 
-__version__ = "0.1.0"
+__version__ = "9.1.1"
 __author__ = "Keith Morley"
 __license__ = "BSD-3-Clause"
 
